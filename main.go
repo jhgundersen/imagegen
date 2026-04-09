@@ -144,10 +144,11 @@ func poll(taskID, key string) string {
 			return imageURL
 		case "failed":
 			msg := "unknown reason"
-			if td.StatusReason.Message != nil {
+			if td.StatusReason.Message != nil && *td.StatusReason.Message != "" {
 				msg = *td.StatusReason.Message
 			}
-			fmt.Fprintf(os.Stderr, "\ngeneration failed: %s\n", msg)
+			pretty, _ := json.MarshalIndent(json.RawMessage(data), "", "  ")
+			fmt.Fprintf(os.Stderr, "\ngeneration failed: %s\n%s\n", msg, pretty)
 			os.Exit(1)
 		default:
 			fmt.Print(".")
