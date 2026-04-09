@@ -4,6 +4,23 @@ CLI tool for AI image generation via [defapi.org](https://defapi.org).
 
 ## Installation
 
+**Pre-built binary** (Linux/macOS):
+
+```sh
+# Detect OS and arch, download latest release
+OS=$(uname -s | tr '[:upper:]' '[:lower:]') ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') && \
+curl -fsSL "https://github.com/jhgundersen/imagegen/releases/latest/download/imagegen-${OS}-${ARCH}" \
+  -o ~/.local/bin/imagegen && chmod +x ~/.local/bin/imagegen
+```
+
+**Using Go:**
+
+```sh
+go install github.com/jhgundersen/imagegen@latest
+```
+
+**From source:**
+
 ```sh
 make install
 ```
