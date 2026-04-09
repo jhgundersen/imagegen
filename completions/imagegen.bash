@@ -1,0 +1,40 @@
+_imagegen() {
+    local cur prev words cword
+    _init_completion || return
+
+    if [[ $cword -eq 1 ]]; then
+        COMPREPLY=($(compgen -W "wan mj gpt google" -- "$cur"))
+        return
+    fi
+
+    case "${words[1]}" in
+        wan)
+            case "$prev" in
+                --ratio) COMPREPLY=($(compgen -W "1:1 16:9 4:3 21:9 3:4 9:16 8:1" -- "$cur")) ;;
+                *)       COMPREPLY=($(compgen -W "--ratio --open" -- "$cur")) ;;
+            esac ;;
+        mj|midjourney)
+            case "$prev" in
+                --speed) COMPREPLY=($(compgen -W "fast relax" -- "$cur")) ;;
+                --bot)   COMPREPLY=($(compgen -W "MID_JOURNEY NIJI_JOURNEY" -- "$cur")) ;;
+                *)       COMPREPLY=($(compgen -W "--speed --bot --image --open" -- "$cur")) ;;
+            esac ;;
+        gpt)
+            case "$prev" in
+                --size)       COMPREPLY=($(compgen -W "auto 1024x1024 1536x1024 1024x1536" -- "$cur")) ;;
+                --quality)    COMPREPLY=($(compgen -W "auto high medium low" -- "$cur")) ;;
+                --background) COMPREPLY=($(compgen -W "auto opaque transparent" -- "$cur")) ;;
+                --format)     COMPREPLY=($(compgen -W "png jpeg webp" -- "$cur")) ;;
+                *)            COMPREPLY=($(compgen -W "--size --quality --background --format --open" -- "$cur")) ;;
+            esac ;;
+        google)
+            case "$prev" in
+                --model) COMPREPLY=($(compgen -W "nano-banana nano-banana-pro nano-banana-2 gemini-2.5-flash-image gemini-3.1-flash-image-preview" -- "$cur")) ;;
+                --ratio) COMPREPLY=($(compgen -W "auto 1:1 16:9 21:9 2:3 3:2 3:4 4:3 4:5 5:4 9:16" -- "$cur")) ;;
+                --size)  COMPREPLY=($(compgen -W "1k 2k 4k" -- "$cur")) ;;
+                *)       COMPREPLY=($(compgen -W "--model --ratio --size --open" -- "$cur")) ;;
+            esac ;;
+    esac
+}
+
+complete -F _imagegen imagegen
