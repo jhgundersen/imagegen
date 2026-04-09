@@ -140,6 +140,7 @@ func poll(taskID, key string) string {
 				fmt.Fprintln(os.Stderr, "error: no image URL in response")
 				os.Exit(1)
 			}
+			fmt.Printf("Image URL: %s\n", imageURL)
 			return imageURL
 		case "failed":
 			msg := "unknown reason"
