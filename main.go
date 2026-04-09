@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -194,11 +196,22 @@ func printResult(dest string) {
 	fmt.Printf("\nSaved to: \033]8;;file://%s\033\\%s\033]8;;\033\\\n", dest, dest)
 }
 
+func openFile(path string) {
+	cmd := "xdg-open"
+	if runtime.GOOS == "darwin" {
+		cmd = "open"
+	}
+	if err := exec.Command(cmd, path).Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not open file: %v\n", err)
+	}
+}
+
 // --- model subcommands ---
 
 func cmdWan(args []string) {
 	fs := flag.NewFlagSet("wan", flag.ExitOnError)
 	ratio := fs.String("ratio", "1:1", "Aspect ratio: 1:1 16:9 4:3 21:9 3:4 9:16 8:1")
+	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
 		fmt.Println("Usage: imagegen wan [flags] <prompt>")
 		fs.PrintDefaults()
@@ -224,6 +237,9 @@ func cmdWan(args []string) {
 	imageURL := poll(taskID, key)
 	dest := download(imageURL, taskID)
 	printResult(dest)
+	if *open {
+		openFile(dest)
+	}
 }
 
 func cmdMidjourney(args []string) {
@@ -231,6 +247,7 @@ func cmdMidjourney(args []string) {
 	speed := fs.String("speed", "fast", "Processing speed: fast, relax")
 	bot := fs.String("bot", "MID_JOURNEY", "Bot type: MID_JOURNEY, NIJI_JOURNEY")
 	image := fs.String("image", "", "Image URL or base64 for editing (uses edits endpoint)")
+	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
 		fmt.Println("Usage: imagegen mj [flags] <prompt>")
 		fmt.Println()
@@ -258,6 +275,9 @@ func cmdMidjourney(args []string) {
 		imageURL := poll(taskID, key)
 		dest := download(imageURL, taskID)
 		printResult(dest)
+		if *open {
+			openFile(dest)
+		}
 	} else {
 		fmt.Printf("Model: midjourney/imagine | Bot: %s | Speed: %s\nPrompt: %s\n\n", *bot, *speed, prompt)
 		data := post("/api/midjourney/imagine", map[string]any{
@@ -269,6 +289,9 @@ func cmdMidjourney(args []string) {
 		imageURL := poll(taskID, key)
 		dest := download(imageURL, taskID)
 		printResult(dest)
+		if *open {
+			openFile(dest)
+		}
 	}
 }
 
@@ -278,6 +301,7 @@ func cmdGPTImage(args []string) {
 	quality := fs.String("quality", "auto", "Quality: auto, high, medium, low")
 	background := fs.String("background", "auto", "Background: auto, opaque, transparent")
 	format := fs.String("format", "png", "Output format: png, jpeg, webp")
+	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
 		fmt.Println("Usage: imagegen gpt [flags] <prompt>")
 		fs.PrintDefaults()
@@ -307,6 +331,9 @@ func cmdGPTImage(args []string) {
 	imageURL := poll(taskID, key)
 	dest := download(imageURL, taskID)
 	printResult(dest)
+	if *open {
+		openFile(dest)
+	}
 }
 
 var googleModels = []string{
@@ -328,6 +355,7 @@ func cmdGoogle(args []string) {
 	model := fs.String("model", "nano-banana-2", "Model: "+strings.Join(googleModels, ", "))
 	ratio := fs.String("ratio", "1:1", "Aspect ratio: auto 1:1 16:9 21:9 2:3 3:2 3:4 4:3 4:5 5:4 9:16")
 	size := fs.String("size", "", "Output resolution: 1k, 2k, 4k (only for nano-banana-pro and nano-banana-2)")
+	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
 		fmt.Println("Usage: imagegen google [flags] <prompt>")
 		fs.PrintDefaults()
@@ -365,6 +393,9 @@ func cmdGoogle(args []string) {
 	imageURL := poll(taskID, key)
 	dest := download(imageURL, taskID)
 	printResult(dest)
+	if *open {
+		openFile(dest)
+	}
 }
 
 func usage() {
