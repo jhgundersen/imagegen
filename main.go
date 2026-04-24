@@ -126,6 +126,35 @@ func extractTaskID(data json.RawMessage) string {
 	return d.TaskID
 }
 
+type stringListFlag []string
+
+func (f *stringListFlag) String() string {
+	return strings.Join(*f, ",")
+}
+
+func (f *stringListFlag) Set(value string) error {
+	for _, item := range strings.Split(value, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			*f = append(*f, item)
+		}
+	}
+	return nil
+}
+
+func normalizeGPTImageModel(model string) string {
+	return strings.TrimPrefix(model, "openai/")
+}
+
+func contains(items []string, item string) bool {
+	for _, candidate := range items {
+		if candidate == item {
+			return true
+		}
+	}
+	return false
+}
+
 func poll(taskID, key string) string {
 	fmt.Printf("Task submitted: %s\nPolling", taskID)
 	for {
@@ -295,15 +324,18 @@ func cmdMidjourney(args []string) {
 	}
 }
 
-func cmdGPTImage(args []string) {
-	fs := flag.NewFlagSet("gpt", flag.ExitOnError)
-	size := fs.String("size", "auto", "Output size: auto, 1024x1024, 1536x1024, 1024x1536")
+func cmdGPTImage(command string, args []string, defaultModel string) {
+	fs := flag.NewFlagSet(command, flag.ExitOnError)
+	model := fs.String("model", defaultModel, "Model: gpt-image-1.5, gpt-image-2")
+	size := fs.String("size", "auto", "Output size: auto, 1024x1024, 1536x1024, 1024x1536 (gpt-image-1.5) or auto, 1:1, 16:9, 9:16 (gpt-image-2)")
 	quality := fs.String("quality", "auto", "Quality: auto, high, medium, low")
 	background := fs.String("background", "auto", "Background: auto, opaque, transparent")
 	format := fs.String("format", "png", "Output format: png, jpeg, webp")
+	var images stringListFlag
+	fs.Var(&images, "image", "Reference image URL for gpt-image-2 editing (repeatable or comma-separated)")
 	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
-		fmt.Println("Usage: imagegen gpt [flags] <prompt>")
+		fmt.Printf("Usage: imagegen %s [flags] <prompt>\n", command)
 		fs.PrintDefaults()
 	}
 	fs.Parse(args)
@@ -314,18 +346,50 @@ func cmdGPTImage(args []string) {
 		os.Exit(1)
 	}
 
-	key := apiKey()
-	fmt.Printf("Model: gpt-image-1.5 | Size: %s | Quality: %s | Format: %s\nPrompt: %s\n\n",
-		*size, *quality, *format, prompt)
+	*model = normalizeGPTImageModel(*model)
+	body := map[string]any{
+		"model":  "openai/" + *model,
+		"prompt": prompt,
+		"size":   *size,
+	}
 
-	data := post("/api/gpt-image/gen", map[string]any{
-		"model":         "openai/gpt-image-1.5",
-		"prompt":        prompt,
-		"size":          *size,
-		"quality":       *quality,
-		"background":    *background,
-		"output_format": *format,
-	}, key)
+	switch *model {
+	case "gpt-image-1.5":
+		if len(images) > 0 {
+			fmt.Fprintln(os.Stderr, "error: --image is only supported with gpt-image-2")
+			os.Exit(1)
+		}
+		body["quality"] = *quality
+		body["background"] = *background
+		body["output_format"] = *format
+	case "gpt-image-2":
+		if !contains([]string{"auto", "1:1", "16:9", "9:16"}, *size) {
+			fmt.Fprintln(os.Stderr, "error: gpt-image-2 --size must be one of: auto, 1:1, 16:9, 9:16")
+			os.Exit(1)
+		}
+		if len(images) > 16 {
+			fmt.Fprintln(os.Stderr, "error: gpt-image-2 supports at most 16 --image values")
+			os.Exit(1)
+		}
+		if len(images) > 0 {
+			body["images"] = []string(images)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "unknown GPT image model: %s\n", *model)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Model: %s | Size: %s", *model, *size)
+	if *model == "gpt-image-1.5" {
+		fmt.Printf(" | Quality: %s | Format: %s", *quality, *format)
+	}
+	if len(images) > 0 {
+		fmt.Printf(" | Images: %d", len(images))
+	}
+	fmt.Printf("\nPrompt: %s\n\n", prompt)
+
+	key := apiKey()
+	data := post("/api/gpt-image/gen", body, key)
 
 	taskID := extractTaskID(data)
 	imageURL := poll(taskID, key)
@@ -404,7 +468,8 @@ func usage() {
 Models:
   wan     Alibaba Wan 2.7 Image (text-to-image)
   mj      Midjourney Imagine (text-to-image, or edit with --image)
-  gpt     OpenAI GPT-Image-1.5 (text-to-image)
+  gpt     OpenAI GPT-Image-1.5/2 (text-to-image, or gpt-image-2 edit with --image)
+  gpt2    OpenAI GPT-Image-2 shortcut
   google  Google image models via --model flag (default: nano-banana-2)
             nano-banana, nano-banana-pro, nano-banana-2,
             gemini-2.5-flash-image, gemini-3.1-flash-image-preview
@@ -424,7 +489,9 @@ func main() {
 	case "mj", "midjourney":
 		cmdMidjourney(os.Args[2:])
 	case "gpt":
-		cmdGPTImage(os.Args[2:])
+		cmdGPTImage("gpt", os.Args[2:], "gpt-image-1.5")
+	case "gpt2":
+		cmdGPTImage("gpt2", os.Args[2:], "gpt-image-2")
 	case "google":
 		cmdGoogle(os.Args[2:])
 	case "-h", "--help", "help":

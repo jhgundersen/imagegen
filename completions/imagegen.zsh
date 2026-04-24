@@ -12,7 +12,8 @@ _imagegen() {
             _values 'model' \
                 'wan[Alibaba Wan 2.7 Image]' \
                 'mj[Midjourney]' \
-                'gpt[OpenAI GPT-Image-1.5]' \
+                'gpt[OpenAI GPT-Image-1.5/2]' \
+                'gpt2[OpenAI GPT-Image-2]' \
                 'google[Google image models]'
             ;;
         args)
@@ -31,12 +32,14 @@ _imagegen() {
                         '--open[Open image after download]' \
                         '*:prompt:'
                     ;;
-                gpt)
+                gpt|gpt2)
                     _arguments \
-                        '--size[Output size]:size:(auto 1024x1024 1536x1024 1024x1536)' \
+                        '--model[Model]:model:(gpt-image-1.5 gpt-image-2)' \
+                        '--size[Output size]:size:(auto 1024x1024 1536x1024 1024x1536 1:1 16:9 9:16)' \
                         '--quality[Quality]:quality:(auto high medium low)' \
                         '--background[Background]:background:(auto opaque transparent)' \
                         '--format[Output format]:format:(png jpeg webp)' \
+                        '--image[Reference image URL for gpt-image-2]:url:' \
                         '--open[Open image after download]' \
                         '*:prompt:'
                     ;;

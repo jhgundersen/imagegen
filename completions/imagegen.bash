@@ -3,7 +3,7 @@ _imagegen() {
     _init_completion || return
 
     if [[ $cword -eq 1 ]]; then
-        COMPREPLY=($(compgen -W "wan mj gpt google" -- "$cur"))
+        COMPREPLY=($(compgen -W "wan mj gpt gpt2 google" -- "$cur"))
         return
     fi
 
@@ -19,13 +19,14 @@ _imagegen() {
                 --bot)   COMPREPLY=($(compgen -W "MID_JOURNEY NIJI_JOURNEY" -- "$cur")) ;;
                 *)       COMPREPLY=($(compgen -W "--speed --bot --image --open" -- "$cur")) ;;
             esac ;;
-        gpt)
+        gpt|gpt2)
             case "$prev" in
-                --size)       COMPREPLY=($(compgen -W "auto 1024x1024 1536x1024 1024x1536" -- "$cur")) ;;
+                --model)      COMPREPLY=($(compgen -W "gpt-image-1.5 gpt-image-2" -- "$cur")) ;;
+                --size)       COMPREPLY=($(compgen -W "auto 1024x1024 1536x1024 1024x1536 1:1 16:9 9:16" -- "$cur")) ;;
                 --quality)    COMPREPLY=($(compgen -W "auto high medium low" -- "$cur")) ;;
                 --background) COMPREPLY=($(compgen -W "auto opaque transparent" -- "$cur")) ;;
                 --format)     COMPREPLY=($(compgen -W "png jpeg webp" -- "$cur")) ;;
-                *)            COMPREPLY=($(compgen -W "--size --quality --background --format --open" -- "$cur")) ;;
+                *)            COMPREPLY=($(compgen -W "--model --size --quality --background --format --image --open" -- "$cur")) ;;
             esac ;;
         google)
             case "$prev" in

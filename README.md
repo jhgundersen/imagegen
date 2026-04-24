@@ -55,20 +55,26 @@ Midjourney parameters (`--ar`, `--stylize`, `--chaos`, etc.) can be appended dir
 | `--bot` | `MID_JOURNEY` | `MID_JOURNEY`, `NIJI_JOURNEY` |
 | `--image` | | Image URL or base64 — switches to the edits endpoint |
 
-#### `gpt` — OpenAI GPT-Image-1.5
+#### `gpt` / `gpt2` — OpenAI GPT-Image
 
 ```sh
 imagegen gpt "a cozy coffee shop interior"
 imagegen gpt "a product photo on white background" --quality high --size 1024x1024
 imagegen gpt "a logo design" --background transparent --format png
+imagegen gpt --model gpt-image-2 "a wide editorial photo of a mountain road" --size 16:9
+imagegen gpt2 "transform the scene to nighttime" --image https://example.com/photo.jpg
 ```
+
+`gpt` defaults to `gpt-image-1.5` for compatibility. Use `--model gpt-image-2` or the `gpt2` shortcut to use GPT-Image-2.
 
 | Flag | Default | Options |
 |------|---------|---------|
-| `--size` | `auto` | `auto`, `1024x1024`, `1536x1024`, `1024x1536` |
-| `--quality` | `auto` | `auto`, `high`, `medium`, `low` |
-| `--background` | `auto` | `auto`, `opaque`, `transparent` |
-| `--format` | `png` | `png`, `jpeg`, `webp` |
+| `--model` | `gpt-image-1.5` | `gpt-image-1.5`, `gpt-image-2` |
+| `--size` | `auto` | `gpt-image-1.5`: `auto`, `1024x1024`, `1536x1024`, `1024x1536`; `gpt-image-2`: `auto`, `1:1`, `16:9`, `9:16` |
+| `--quality` | `auto` | `gpt-image-1.5` only: `auto`, `high`, `medium`, `low` |
+| `--background` | `auto` | `gpt-image-1.5` only: `auto`, `opaque`, `transparent` |
+| `--format` | `png` | `gpt-image-1.5` only: `png`, `jpeg`, `webp` |
+| `--image` | | `gpt-image-2` only: reference image URL, repeatable or comma-separated, up to 16 |
 
 #### `google` — Google image models
 
