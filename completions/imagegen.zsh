@@ -21,6 +21,7 @@ _imagegen() {
                 wan)
                     _arguments \
                         '--ratio[Aspect ratio]:ratio:(1:1 16:9 4:3 21:9 3:4 9:16 8:1)' \
+                        '(-o --output)'{-o,--output}'[Save image to this file path]:file:_files' \
                         '--open[Open image after download]' \
                         '*:prompt:'
                     ;;
@@ -29,6 +30,7 @@ _imagegen() {
                         '--speed[Processing speed]:speed:(fast relax)' \
                         '--bot[Bot type]:bot:(MID_JOURNEY NIJI_JOURNEY)' \
                         '--image[Image URL for editing]:url:' \
+                        '(-o --output)'{-o,--output}'[Save image to this file path]:file:_files' \
                         '--open[Open image after download]' \
                         '*:prompt:'
                     ;;
@@ -40,6 +42,7 @@ _imagegen() {
                         '--background[Background]:background:(auto opaque transparent)' \
                         '--format[Output format]:format:(png jpeg webp)' \
                         '--image[Reference image URL for gpt-image-2]:url:' \
+                        '(-o --output)'{-o,--output}'[Save image to this file path]:file:_files' \
                         '--open[Open image after download]' \
                         '*:prompt:'
                     ;;
@@ -48,6 +51,7 @@ _imagegen() {
                         '--model[Model]:model:(nano-banana nano-banana-pro nano-banana-2 gemini-2.5-flash-image gemini-3.1-flash-image-preview)' \
                         '--ratio[Aspect ratio]:ratio:(auto 1:1 16:9 21:9 2:3 3:2 3:4 4:3 4:5 5:4 9:16)' \
                         '--size[Output resolution]:size:(1k 2k 4k)' \
+                        '(-o --output)'{-o,--output}'[Save image to this file path]:file:_files' \
                         '--open[Open image after download]' \
                         '*:prompt:'
                     ;;

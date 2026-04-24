@@ -142,6 +142,30 @@ func (f *stringListFlag) Set(value string) error {
 	return nil
 }
 
+func extractOutputArg(args []string) ([]string, string) {
+	var cleaned []string
+	var output string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--output" || arg == "-o":
+			if i+1 >= len(args) {
+				fmt.Fprintf(os.Stderr, "error: %s requires a file path\n", arg)
+				os.Exit(1)
+			}
+			output = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "--output="):
+			output = strings.TrimPrefix(arg, "--output=")
+		case strings.HasPrefix(arg, "-o="):
+			output = strings.TrimPrefix(arg, "-o=")
+		default:
+			cleaned = append(cleaned, arg)
+		}
+	}
+	return cleaned, output
+}
+
 func normalizeGPTImageModel(model string) string {
 	return strings.TrimPrefix(model, "openai/")
 }
@@ -197,11 +221,31 @@ func guessExt(url string) string {
 	return ".png"
 }
 
-func download(imageURL, taskID string) string {
-	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, "Downloads")
-	os.MkdirAll(dir, 0755)
-	dest := filepath.Join(dir, "imagegen_"+taskID+guessExt(imageURL))
+func download(imageURL, taskID, output string) string {
+	dest := output
+	if dest == "" {
+		home, _ := os.UserHomeDir()
+		dir := filepath.Join(home, "Downloads")
+		os.MkdirAll(dir, 0755)
+		dest = filepath.Join(dir, "imagegen_"+taskID+guessExt(imageURL))
+	} else {
+		abs, err := filepath.Abs(dest)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "file error: %v\n", err)
+			os.Exit(1)
+		}
+		dest = abs
+		if info, err := os.Stat(dest); err == nil && info.IsDir() {
+			fmt.Fprintf(os.Stderr, "file error: output path is a directory: %s\n", dest)
+			os.Exit(1)
+		}
+		if dir := filepath.Dir(dest); dir != "." {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				fmt.Fprintf(os.Stderr, "file error: %v\n", err)
+				os.Exit(1)
+			}
+		}
+	}
 
 	fmt.Println("Downloading...")
 	resp, err := http.Get(imageURL)
@@ -219,6 +263,12 @@ func download(imageURL, taskID string) string {
 	defer f.Close()
 	io.Copy(f, resp.Body)
 	return dest
+}
+
+func outputFlag(fs *flag.FlagSet) *string {
+	output := fs.String("output", "", "Save image to this file path")
+	fs.StringVar(output, "o", "", "Save image to this file path")
+	return output
 }
 
 func printResult(dest string) {
@@ -240,12 +290,17 @@ func openFile(path string) {
 func cmdWan(args []string) {
 	fs := flag.NewFlagSet("wan", flag.ExitOnError)
 	ratio := fs.String("ratio", "1:1", "Aspect ratio: 1:1 16:9 4:3 21:9 3:4 9:16 8:1")
+	output := outputFlag(fs)
 	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
 		fmt.Println("Usage: imagegen wan [flags] <prompt>")
 		fs.PrintDefaults()
 	}
+	args, outputArg := extractOutputArg(args)
 	fs.Parse(args)
+	if outputArg != "" {
+		*output = outputArg
+	}
 
 	prompt := strings.Join(fs.Args(), " ")
 	if prompt == "" {
@@ -264,7 +319,7 @@ func cmdWan(args []string) {
 
 	taskID := extractTaskID(data)
 	imageURL := poll(taskID, key)
-	dest := download(imageURL, taskID)
+	dest := download(imageURL, taskID, *output)
 	printResult(dest)
 	if *open {
 		openFile(dest)
@@ -276,6 +331,7 @@ func cmdMidjourney(args []string) {
 	speed := fs.String("speed", "fast", "Processing speed: fast, relax")
 	bot := fs.String("bot", "MID_JOURNEY", "Bot type: MID_JOURNEY, NIJI_JOURNEY")
 	image := fs.String("image", "", "Image URL or base64 for editing (uses edits endpoint)")
+	output := outputFlag(fs)
 	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
 		fmt.Println("Usage: imagegen mj [flags] <prompt>")
@@ -283,7 +339,11 @@ func cmdMidjourney(args []string) {
 		fmt.Println("Midjourney parameters (--ar, --stylize, etc.) can be appended directly to the prompt.")
 		fs.PrintDefaults()
 	}
+	args, outputArg := extractOutputArg(args)
 	fs.Parse(args)
+	if outputArg != "" {
+		*output = outputArg
+	}
 
 	prompt := strings.Join(fs.Args(), " ")
 	if prompt == "" {
@@ -302,7 +362,7 @@ func cmdMidjourney(args []string) {
 		}, key)
 		taskID := extractTaskID(data)
 		imageURL := poll(taskID, key)
-		dest := download(imageURL, taskID)
+		dest := download(imageURL, taskID, *output)
 		printResult(dest)
 		if *open {
 			openFile(dest)
@@ -316,7 +376,7 @@ func cmdMidjourney(args []string) {
 		}, key)
 		taskID := extractTaskID(data)
 		imageURL := poll(taskID, key)
-		dest := download(imageURL, taskID)
+		dest := download(imageURL, taskID, *output)
 		printResult(dest)
 		if *open {
 			openFile(dest)
@@ -333,12 +393,17 @@ func cmdGPTImage(command string, args []string, defaultModel string) {
 	format := fs.String("format", "png", "Output format: png, jpeg, webp")
 	var images stringListFlag
 	fs.Var(&images, "image", "Reference image URL for gpt-image-2 editing (repeatable or comma-separated)")
+	output := outputFlag(fs)
 	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
 		fmt.Printf("Usage: imagegen %s [flags] <prompt>\n", command)
 		fs.PrintDefaults()
 	}
+	args, outputArg := extractOutputArg(args)
 	fs.Parse(args)
+	if outputArg != "" {
+		*output = outputArg
+	}
 
 	prompt := strings.Join(fs.Args(), " ")
 	if prompt == "" {
@@ -393,7 +458,7 @@ func cmdGPTImage(command string, args []string, defaultModel string) {
 
 	taskID := extractTaskID(data)
 	imageURL := poll(taskID, key)
-	dest := download(imageURL, taskID)
+	dest := download(imageURL, taskID, *output)
 	printResult(dest)
 	if *open {
 		openFile(dest)
@@ -419,12 +484,17 @@ func cmdGoogle(args []string) {
 	model := fs.String("model", "nano-banana-2", "Model: "+strings.Join(googleModels, ", "))
 	ratio := fs.String("ratio", "1:1", "Aspect ratio: auto 1:1 16:9 21:9 2:3 3:2 3:4 4:3 4:5 5:4 9:16")
 	size := fs.String("size", "", "Output resolution: 1k, 2k, 4k (only for nano-banana-pro and nano-banana-2)")
+	output := outputFlag(fs)
 	open := fs.Bool("open", false, "Open the image after download")
 	fs.Usage = func() {
 		fmt.Println("Usage: imagegen google [flags] <prompt>")
 		fs.PrintDefaults()
 	}
+	args, outputArg := extractOutputArg(args)
 	fs.Parse(args)
+	if outputArg != "" {
+		*output = outputArg
+	}
 
 	prompt := strings.Join(fs.Args(), " ")
 	if prompt == "" {
@@ -455,7 +525,7 @@ func cmdGoogle(args []string) {
 	data := post("/api/image/gen", body, key)
 	taskID := extractTaskID(data)
 	imageURL := poll(taskID, key)
-	dest := download(imageURL, taskID)
+	dest := download(imageURL, taskID, *output)
 	printResult(dest)
 	if *open {
 		openFile(dest)

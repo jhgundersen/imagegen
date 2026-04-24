@@ -33,11 +33,13 @@ imagegen <model> [flags] <prompt>
 ```sh
 imagegen wan "a misty mountain lake at dawn"
 imagegen wan "a portrait in watercolor style" --ratio 3:4
+imagegen wan "a misty mountain lake at dawn" -o lake.png
 ```
 
 | Flag | Default | Options |
 |------|---------|---------|
 | `--ratio` | `1:1` | `1:1`, `16:9`, `4:3`, `21:9`, `3:4`, `9:16`, `8:1` |
+| `--output`, `-o` | | Save image to this file path |
 
 #### `mj` — Midjourney
 
@@ -54,6 +56,7 @@ Midjourney parameters (`--ar`, `--stylize`, `--chaos`, etc.) can be appended dir
 | `--speed` | `fast` | `fast`, `relax` |
 | `--bot` | `MID_JOURNEY` | `MID_JOURNEY`, `NIJI_JOURNEY` |
 | `--image` | | Image URL or base64 — switches to the edits endpoint |
+| `--output`, `-o` | | Save image to this file path |
 
 #### `gpt` / `gpt2` — OpenAI GPT-Image
 
@@ -63,6 +66,7 @@ imagegen gpt "a product photo on white background" --quality high --size 1024x10
 imagegen gpt "a logo design" --background transparent --format png
 imagegen gpt --model gpt-image-2 "a wide editorial photo of a mountain road" --size 16:9
 imagegen gpt2 "transform the scene to nighttime" --image https://example.com/photo.jpg
+imagegen gpt2 "a simple black and white icon" -o icon.png
 ```
 
 `gpt` defaults to `gpt-image-1.5` for compatibility. Use `--model gpt-image-2` or the `gpt2` shortcut to use GPT-Image-2.
@@ -75,6 +79,7 @@ imagegen gpt2 "transform the scene to nighttime" --image https://example.com/pho
 | `--background` | `auto` | `gpt-image-1.5` only: `auto`, `opaque`, `transparent` |
 | `--format` | `png` | `gpt-image-1.5` only: `png`, `jpeg`, `webp` |
 | `--image` | | `gpt-image-2` only: reference image URL, repeatable or comma-separated, up to 16 |
+| `--output`, `-o` | | Save image to this file path |
 
 #### `google` — Google image models
 
@@ -89,7 +94,8 @@ imagegen google "a wide landscape" --model gemini-2.5-flash-image --ratio 16:9
 | `--model` | `nano-banana-2` | `nano-banana`, `nano-banana-pro`, `nano-banana-2`, `gemini-2.5-flash-image`, `gemini-3.1-flash-image-preview` |
 | `--ratio` | `1:1` | `auto`, `1:1`, `16:9`, `21:9`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16` |
 | `--size` | | `1k`, `2k`, `4k` — only for `nano-banana-pro` and `nano-banana-2` |
+| `--output`, `-o` | | Save image to this file path |
 
 ## Output
 
-Generated images are downloaded to `~/Downloads/imagegen_<task_id>.<ext>`. The path is printed as a clickable link in terminals that support OSC 8 hyperlinks (Kitty, Alacritty, WezTerm, GNOME Terminal 3.26+).
+Generated images are downloaded to `~/Downloads/imagegen_<task_id>.<ext>` by default. Use `--output` or `-o` to choose the exact file path. Parent directories are created automatically. The path is printed as a clickable link in terminals that support OSC 8 hyperlinks (Kitty, Alacritty, WezTerm, GNOME Terminal 3.26+).
