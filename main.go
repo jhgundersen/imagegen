@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -15,14 +16,29 @@ import (
 )
 
 const (
-	apiBase      = "https://api.defapi.org"
-	pollInterval = 5 * time.Second
+	apiBase                = "https://api.defapi.org"
+	pollInterval           = 5 * time.Second
+	taskNotFoundRetryLimit = 5
 )
 
 type apiResponse struct {
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data"`
+}
+
+type responseError struct {
+	StatusCode int
+	Body       string
+	Code       int
+	Message    string
+}
+
+func (e *responseError) Error() string {
+	if e.StatusCode >= 400 {
+		return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Body)
+	}
+	return fmt.Sprintf("API error %d: %s", e.Code, e.Message)
 }
 
 // taskData handles both object and array result shapes across models.
@@ -88,34 +104,61 @@ func post(endpoint string, body map[string]any, key string) json.RawMessage {
 }
 
 func get(endpoint string, key string) json.RawMessage {
+	data, err := getData(endpoint, key)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	return data
+}
+
+func getData(endpoint string, key string) (json.RawMessage, error) {
 	req, _ := http.NewRequest("GET", apiBase+endpoint, nil)
 	req.Header.Set("Authorization", "Bearer "+key)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "request error: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("request error: %w", err)
 	}
 	defer resp.Body.Close()
-	return readResponse(resp)
+	return readResponseData(resp)
 }
 
 func readResponse(resp *http.Response) json.RawMessage {
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 400 {
-		fmt.Fprintf(os.Stderr, "HTTP %d: %s\n", resp.StatusCode, string(raw))
+	data, err := readResponseData(resp)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	return data
+}
+
+func readResponseData(resp *http.Response) (json.RawMessage, error) {
+	raw, _ := io.ReadAll(resp.Body)
 	var ar apiResponse
-	if err := json.Unmarshal(raw, &ar); err != nil {
-		fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
-		os.Exit(1)
+	if err := json.Unmarshal(raw, &ar); err != nil && resp.StatusCode < 400 {
+		return nil, fmt.Errorf("parse error: %w", err)
+	}
+	if resp.StatusCode >= 400 {
+		return nil, &responseError{
+			StatusCode: resp.StatusCode,
+			Body:       string(raw),
+			Code:       ar.Code,
+			Message:    ar.Message,
+		}
 	}
 	if ar.Code != 0 {
-		fmt.Fprintf(os.Stderr, "API error %d: %s\n", ar.Code, ar.Message)
-		os.Exit(1)
+		return nil, &responseError{Code: ar.Code, Message: ar.Message}
 	}
-	return ar.Data
+	return ar.Data, nil
+}
+
+func isTaskNotFoundError(err error) bool {
+	var re *responseError
+	if !errors.As(err, &re) {
+		return false
+	}
+	return re.StatusCode == http.StatusNotFound && re.Code == 1 && re.Message == "task not found"
 }
 
 func extractTaskID(data json.RawMessage) string {
@@ -181,9 +224,21 @@ func contains(items []string, item string) bool {
 
 func poll(taskID, key string) string {
 	fmt.Printf("Task submitted: %s\nPolling", taskID)
+	taskNotFoundRetries := 0
 	for {
 		time.Sleep(pollInterval)
-		data := get("/api/task/query?task_id="+taskID, key)
+		data, err := getData("/api/task/query?task_id="+taskID, key)
+		if err != nil {
+			if isTaskNotFoundError(err) && taskNotFoundRetries < taskNotFoundRetryLimit {
+				taskNotFoundRetries++
+				fmt.Print(".")
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "\n%v\n", err)
+			os.Exit(1)
+		}
+		taskNotFoundRetries = 0
+
 		var td taskData
 		json.Unmarshal(data, &td)
 

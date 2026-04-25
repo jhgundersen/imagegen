@@ -1,7 +1,10 @@
 package main
 
 import (
+	"io"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -38,5 +41,35 @@ func TestExtractOutputArgUsesLastValue(t *testing.T) {
 	wantArgs := []string{"a prompt"}
 	if !reflect.DeepEqual(args, wantArgs) {
 		t.Fatalf("args = %#v, want %#v", args, wantArgs)
+	}
+}
+
+func TestReadResponseDataClassifiesTaskNotFound(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: http.StatusNotFound,
+		Body:       io.NopCloser(strings.NewReader(`{"code":1,"message":"task not found"}`)),
+	}
+
+	_, err := readResponseData(resp)
+	if err == nil {
+		t.Fatal("err = nil, want task not found error")
+	}
+	if !isTaskNotFoundError(err) {
+		t.Fatalf("isTaskNotFoundError() = false, want true for %v", err)
+	}
+}
+
+func TestReadResponseDataDoesNotClassifyOther404sAsTaskNotFound(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: http.StatusNotFound,
+		Body:       io.NopCloser(strings.NewReader(`{"code":2,"message":"not found"}`)),
+	}
+
+	_, err := readResponseData(resp)
+	if err == nil {
+		t.Fatal("err = nil, want response error")
+	}
+	if isTaskNotFoundError(err) {
+		t.Fatalf("isTaskNotFoundError() = true, want false for %v", err)
 	}
 }
